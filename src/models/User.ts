@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
+import type { IUserDocument } from "../types/User.js";
 
-const userSchema = new mongoose.Schema(
+const userSchema = new mongoose.Schema<IUserDocument>(
   {
     name: {
       type: String,
@@ -19,8 +20,17 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    refreshToken: {
+      type: String,
+    },
+    resetPasswordToken: {
+      type: String,
+    },
+    resetPasswordExpires: {
+      type: Date,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export const User = mongoose.model("User", userSchema);

@@ -1,7 +1,9 @@
 import type { Request, Response } from "express";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import { User } from "../models/User.js";
+import { generateAccessToken, generateRefreshToken } from "../config/jwt.js";
+import jwt from "jsonwebtoken";
 
 export const registerUser = async (req: Request, res: Response) => {
   try {
@@ -46,21 +48,159 @@ export const loginUser = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    const token = jwt.sign(
-      { id: user._id, isAdmin: user.isAdmin },
-      process.env.JWT_SECRET as string,
-      { expiresIn: "7d" }
-    );
+    const accessToken = generateAccessToken({
+      id: user._id,
+      isAdmin: user.isAdmin,
+    });
 
-    res.json({
-      token,
+    const refreshToken = generateRefreshToken({
+      id: user._id,
+    });
+
+    user.refreshToken = refreshToken;
+    await user.save();
+
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: false, // true in production (HTTPS)
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    return res.status(200).json({
+      accessToken,
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
+        isAdmin: user.isAdmin,
       },
     });
   } catch (error) {
+    console.error("Login error:", error);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const forgotPassword = async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+
+    user.resetPasswordToken = hashedToken;
+
+    user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000);
+
+    await user.save();
+
+    res.json({
+      message: "Password reset token generated",
+      resetToken, // (for dev only — in real apps send email)
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const resetPassword = async (req: Request, res: Response) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired token" });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+
+    await user.save();
+
+    res.json({ message: "Password reset successful" });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const refreshToken = async (req: Request, res: Response) => {
+  try {
+    const token = req.cookies.refreshToken;
+
+    if (!token) {
+      return res.status(401).json({ message: "No refresh token" });
+    }
+
+    const decoded = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET!) as {
+      id: string;
+    };
+
+    const user = await User.findById(decoded.id);
+
+    if (!user) {
+      return res.status(403).json({ message: "User not found" });
+    }
+
+    if (user.refreshToken !== token) {
+      return res.status(403).json({ message: "Invalid refresh token" });
+    }
+    const newAccessToken = generateAccessToken({
+      id: user._id,
+      isAdmin: user.isAdmin,
+    });
+
+    res.json({ accessToken: newAccessToken });
+  } catch (error) {
+    return res
+      .status(403)
+      .json({ message: "Invalid or expired refresh token" });
+  }
+};
+
+export const logoutUser = async (req: Request, res: Response) => {
+  try {
+    const token = req.cookies.refreshToken;
+
+    if (!token) {
+      return res.status(200).json({ message: "Already logged out" });
+    }
+
+    // Find user with this refresh token
+    const user = await User.findOne({ refreshToken: token });
+
+    if (user) {
+      user.refreshToken = undefined;
+      await user.save();
+    }
+
+    // Clear cookie
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: false, // true in production
+      sameSite: "strict",
+    });
+
+    return res.status(200).json({ message: "Logged out successfully" });
+  } catch (error) {
+    return res.status(500).json({ message: "Server error" });
   }
 };
