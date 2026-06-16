@@ -4,12 +4,20 @@ export interface ICartItem {
   product: Types.ObjectId;
   variantId: string;
   quantity: number;
+  price: number;
+}
+
+export interface GuestCartItem {
+  productId: string;
+  variantId: string;
+  quantity: number;
 }
 
 interface ICart{
   user: Types.ObjectId;
   items: ICartItem[];
-  totalPrice: number;
 }
 
-export interface ICartDocument extends ICart, Document {}
+export interface ICartDocument extends ICart, Document {
+  totalPrice: number;
+}

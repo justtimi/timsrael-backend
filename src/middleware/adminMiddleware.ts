@@ -1,11 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
 
-interface AuthRequest extends Request {
-  user?: any;
-}
 
 export const admin = (
-  req: AuthRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {

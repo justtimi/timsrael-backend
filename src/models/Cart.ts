@@ -20,8 +20,12 @@ const cartItemSchema = new Schema(
       min: 1,
       default: 1,
     },
+    price: {
+      type: Number,
+      required: true,
+    },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const cartSchema = new Schema<ICartDocument>(
@@ -34,16 +38,17 @@ const cartSchema = new Schema<ICartDocument>(
     },
 
     items: [cartItemSchema],
-
-    totalPrice: {
-      type: Number,
-      default: 0,
-    },
   },
   {
     timestamps: true,
-  }
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  },
 );
+
+cartSchema.virtual("totalPrice").get(function () {
+  return this.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+});
 
 const Cart = model<ICartDocument>("Cart", cartSchema);
 

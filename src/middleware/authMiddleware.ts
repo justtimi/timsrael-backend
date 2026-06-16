@@ -2,12 +2,10 @@ import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { verifyToken } from "../config/jwt.js";
 
-interface AuthRequest extends Request {
-  user?: any;
-}
+
 
 export const protect = (
-  req: AuthRequest,
+  req: Request,
   res: Response,
   next: NextFunction,
 ) => {

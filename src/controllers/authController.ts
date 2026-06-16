@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { User } from "../models/User.js";
 import { generateAccessToken, generateRefreshToken } from "../config/jwt.js";
 import jwt from "jsonwebtoken";
+import { mergeGuestCartWithUserCart } from "../utils/mergeCart.js";
 
 export const registerUser = async (req: Request, res: Response) => {
   try {
@@ -34,7 +35,7 @@ export const registerUser = async (req: Request, res: Response) => {
 
 export const loginUser = async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, guestCart } = req.body;
 
     const user = await User.findOne({ email });
 
@@ -48,13 +49,22 @@ export const loginUser = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
+    let cart = null;
+
+if (guestCart && guestCart.items?.length > 0) {
+  cart = await mergeGuestCartWithUserCart(
+    user._id.toString(),
+    guestCart.items
+  );
+}
+
     const accessToken = generateAccessToken({
-      id: user._id,
+      id: user._id.toString(),
       isAdmin: user.isAdmin,
     });
 
     const refreshToken = generateRefreshToken({
-      id: user._id,
+      id: user._id.toString(),
     });
 
     user.refreshToken = refreshToken;
@@ -75,6 +85,7 @@ export const loginUser = async (req: Request, res: Response) => {
         email: user.email,
         isAdmin: user.isAdmin,
       },
+      cart,
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -164,7 +175,7 @@ export const refreshToken = async (req: Request, res: Response) => {
       return res.status(403).json({ message: "Invalid refresh token" });
     }
     const newAccessToken = generateAccessToken({
-      id: user._id,
+      id: user._id.toString(),
       isAdmin: user.isAdmin,
     });
 
