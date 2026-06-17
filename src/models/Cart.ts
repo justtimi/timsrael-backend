@@ -1,32 +1,29 @@
 import { Schema, model } from "mongoose";
 import type { ICartDocument } from "../types/Cart.js";
 
-const cartItemSchema = new Schema(
-  {
-    product: {
-      type: Schema.Types.ObjectId,
-      ref: "Product",
-      required: true,
-    },
-
-    variantId: {
-      type: String,
-      required: true,
-    },
-
-    quantity: {
-      type: Number,
-      required: true,
-      min: 1,
-      default: 1,
-    },
-    price: {
-      type: Number,
-      required: true,
-    },
+const cartItemSchema = new Schema({
+  product: {
+    type: Schema.Types.ObjectId,
+    ref: "Product",
+    required: true,
   },
-  { _id: false },
-);
+
+  variantId: {
+    type: String,
+    required: true,
+  },
+
+  quantity: {
+    type: Number,
+    required: true,
+    min: 1,
+    default: 1,
+  },
+  price: {
+    type: Number,
+    required: true,
+  },
+});
 
 const cartSchema = new Schema<ICartDocument>(
   {

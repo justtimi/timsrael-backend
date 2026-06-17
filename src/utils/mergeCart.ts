@@ -19,13 +19,13 @@ export const mergeGuestCartWithUserCart = async (
 
   // 2. Merge items
   for (const guestItem of guestItems) {
-      const product = await Product.findById(guestItem.productId);
+    const product = await Product.findById(guestItem.product);
 
-      if (!product) continue;
+    if (!product) continue;
 
     const existingIndex = userCart.items.findIndex(
       (item) =>
-        item.product.toString() === guestItem.productId &&
+        item.product.toString() === guestItem.product &&
         item.variantId === guestItem.variantId,
     );
 
@@ -38,7 +38,7 @@ export const mergeGuestCartWithUserCart = async (
     } else {
       const effectivePrice = product.discountPrice ?? product.price;
       userCart.items.push({
-        product: new Types.ObjectId(guestItem.productId),
+        product: new Types.ObjectId(guestItem.product),
         variantId: guestItem.variantId,
         quantity: guestItem.quantity,
         price: effectivePrice,

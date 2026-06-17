@@ -1,14 +1,39 @@
 import type { Request, Response } from "express";
 import Cart from "../models/Cart.js";
 import Product from "../models/Product.js";
+import type { ICartItem } from "../types/Cart.js";
+import { Types } from "mongoose";
+import {
+  addToCartSchema,
+  removeCartItemSchema,
+  updateCartItemSchema,
+} from "../validators/cartValidators.js";
+
+const findCartItemIndex = (
+  items: ICartItem[],
+  productId: string,
+  variantId: string,
+): number =>
+  items.findIndex(
+    (item) =>
+      item.product.toString() === productId && item.variantId === variantId,
+  );
 
 export const addToCart = async (req: Request, res: Response) => {
   try {
-    const userId = req.user.id; // from protect middleware
+    const userId = req.user.id;
 
-    const { productId, variantId, quantity } = req.body;
+    const result = addToCartSchema.safeParse(req.body);
 
-    // 1. Validate product exists
+    if (!result.success) {
+      return res.status(400).json({
+        message: "Invalid request data",
+        errors: result.error.flatten().fieldErrors,
+      });
+    }
+
+    const { productId, variantId, quantity } = result.data;
+
     const product = await Product.findById(productId);
 
     if (!product) {
@@ -17,9 +42,8 @@ export const addToCart = async (req: Request, res: Response) => {
       });
     }
 
-    // 2. Find variant
     const variant = product.variants.find(
-      (v: any) => `${v.size}-${v.color}` === variantId,
+      (v) => v._id.toString() === variantId,
     );
 
     if (!variant) {
@@ -28,14 +52,12 @@ export const addToCart = async (req: Request, res: Response) => {
       });
     }
 
-    // 3. Check stock
     if (variant.stock < quantity) {
       return res.status(400).json({
         message: "Insufficient stock",
       });
     }
 
-    // 4. Get or create cart
     let cart = await Cart.findOne({ user: userId });
 
     if (!cart) {
@@ -45,10 +67,10 @@ export const addToCart = async (req: Request, res: Response) => {
       });
     }
 
-    // 5. Check if item already exists in cart
-    const existingItemIndex = cart.items.findIndex(
-      (item) =>
-        item.product.toString() === productId && item.variantId === variantId,
+    const existingItemIndex = findCartItemIndex(
+      cart.items,
+      productId,
+      variantId,
     );
 
     if (existingItemIndex > -1) {
@@ -63,20 +85,16 @@ export const addToCart = async (req: Request, res: Response) => {
         existingItem.quantity = newQuantity;
       }
     } else {
-      // add new item
       const effectivePrice = product.discountPrice ?? product.price;
 
-cart.items.push({
-  product: productId,
-  variantId,
-  quantity,
-  price: effectivePrice,
-});
+      cart.items.push({
+        product: new Types.ObjectId(productId),
+        variantId,
+        quantity,
+        price: effectivePrice,
+      });
     }
 
-
-
-    // 7. Save cart
     await cart.save();
 
     return res.status(200).json({
@@ -115,7 +133,16 @@ export const getCart = async (req: Request, res: Response) => {
 export const updateCartItem = async (req: Request, res: Response) => {
   try {
     const userId = req.user.id;
-    const { productId, variantId, quantity } = req.body;
+    const result = updateCartItemSchema.safeParse(req.body);
+
+    if (!result.success) {
+      return res.status(400).json({
+        message: "Invalid request data",
+        errors: result.error.flatten().fieldErrors,
+      });
+    }
+
+    const { productId, variantId, quantity } = result.data;
 
     const cart = await Cart.findOne({ user: userId });
 
@@ -123,20 +150,15 @@ export const updateCartItem = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Cart not found" });
     }
 
-    const itemIndex = cart.items.findIndex(
-      (item) =>
-        item.product.toString() === productId && item.variantId === variantId,
-    );
+    const itemIndex = findCartItemIndex(cart.items, productId, variantId);
 
     if (itemIndex === -1) {
       return res.status(404).json({ message: "Item not in cart" });
     }
 
-    // if quantity is 0 → remove item
     if (quantity <= 0) {
       cart.items.splice(itemIndex, 1);
     } else {
-      // ✅ Validate stock before updating
       const product = await Product.findById(productId);
 
       if (!product) {
@@ -144,7 +166,7 @@ export const updateCartItem = async (req: Request, res: Response) => {
       }
 
       const variant = product.variants.find(
-        (v: any) => v._id.toString() === variantId,
+        (v) => v._id.toString() === variantId,
       );
 
       if (!variant) {
@@ -161,7 +183,6 @@ export const updateCartItem = async (req: Request, res: Response) => {
       }
     }
 
-
     await cart.save();
 
     return res.status(200).json({
@@ -177,7 +198,16 @@ export const updateCartItem = async (req: Request, res: Response) => {
 export const removeCartItem = async (req: Request, res: Response) => {
   try {
     const userId = req.user.id;
-    const { productId, variantId } = req.body;
+    const result = removeCartItemSchema.safeParse(req.params);
+
+    if (!result.success) {
+      return res.status(400).json({
+        message: "Invalid request data",
+        errors: result.error.flatten().fieldErrors,
+      });
+    }
+
+    const { productId, variantId} = result.data;
 
     const cart = await Cart.findOne({ user: userId });
 
@@ -185,13 +215,13 @@ export const removeCartItem = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Cart not found" });
     }
 
-    cart.items = cart.items.filter(
-      (item) =>
-        !(
-          item.product.toString() === productId && item.variantId === variantId
-        ),
-    );
+    const itemIndex = findCartItemIndex(cart.items, productId, variantId);
 
+    if (itemIndex === -1) {
+      return res.status(404).json({ message: "Item not in cart" });
+    }
+
+    cart.items.splice(itemIndex, 1);
 
     await cart.save();
 

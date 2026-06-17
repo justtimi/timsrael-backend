@@ -6,6 +6,8 @@ import { generateAccessToken, generateRefreshToken } from "../config/jwt.js";
 import jwt from "jsonwebtoken";
 import { mergeGuestCartWithUserCart } from "../utils/mergeCart.js";
 
+const BCRYPT_SALT_ROUNDS = 12;
+
 export const registerUser = async (req: Request, res: Response) => {
   try {
     const { name, email, password } = req.body;
@@ -15,7 +17,7 @@ export const registerUser = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
 
     const user = await User.create({
       name,
@@ -23,13 +25,13 @@ export const registerUser = async (req: Request, res: Response) => {
       password: hashedPassword,
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       id: user._id,
       name: user.name,
       email: user.email,
     });
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -51,12 +53,12 @@ export const loginUser = async (req: Request, res: Response) => {
 
     let cart = null;
 
-if (guestCart && guestCart.items?.length > 0) {
-  cart = await mergeGuestCartWithUserCart(
-    user._id.toString(),
-    guestCart.items
-  );
-}
+    if (guestCart && guestCart.items?.length > 0) {
+      cart = await mergeGuestCartWithUserCart(
+        user._id.toString(),
+        guestCart.items,
+      );
+    }
 
     const accessToken = generateAccessToken({
       id: user._id.toString(),
@@ -67,14 +69,19 @@ if (guestCart && guestCart.items?.length > 0) {
       id: user._id.toString(),
     });
 
-    user.refreshToken = refreshToken;
+    const hashedRefreshToken = crypto
+      .createHash("sha256")
+      .update(refreshToken)
+      .digest("hex");
+
+    user.refreshToken = hashedRefreshToken;
     await user.save();
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: false, // true in production (HTTPS)
+      secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     return res.status(200).json({
@@ -89,7 +96,7 @@ if (guestCart && guestCart.items?.length > 0) {
     });
   } catch (error) {
     console.error("Login error:", error);
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -100,7 +107,10 @@ export const forgotPassword = async (req: Request, res: Response) => {
     const user = await User.findOne({ email });
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(200).json({
+        message:
+          "If that email is registered, you'll receive a reset link shortly.",
+      });
     }
 
     const resetToken = crypto.randomBytes(32).toString("hex");
@@ -116,12 +126,15 @@ export const forgotPassword = async (req: Request, res: Response) => {
 
     await user.save();
 
-    res.json({
-      message: "Password reset token generated",
-      resetToken, // (for dev only — in real apps send email)
+    console.log(`[DEV] Password reset token for ${user.email}: ${resetToken}`);
+
+    return res.status(200).json({
+      message:
+        "If that email is registered, you'll receive a reset link shortly.",
     });
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    console.error("[AuthController] forgotPassword error:", error);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -140,16 +153,16 @@ export const resetPassword = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Invalid or expired token" });
     }
 
-    user.password = await bcrypt.hash(newPassword, 10);
+    user.password = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
 
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
 
     await user.save();
 
-    res.json({ message: "Password reset successful" });
+    return res.json({ message: "Password reset successful" });
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -161,7 +174,10 @@ export const refreshToken = async (req: Request, res: Response) => {
       return res.status(401).json({ message: "No refresh token" });
     }
 
-    const decoded = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET!) as {
+    const decoded = jwt.verify(
+      token,
+      process.env.REFRESH_TOKEN_SECRET as string,
+    ) as {
       id: string;
     };
 
@@ -171,7 +187,9 @@ export const refreshToken = async (req: Request, res: Response) => {
       return res.status(403).json({ message: "User not found" });
     }
 
-    if (user.refreshToken !== token) {
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+    if (user.refreshToken !== hashedToken) {
       return res.status(403).json({ message: "Invalid refresh token" });
     }
     const newAccessToken = generateAccessToken({
@@ -179,7 +197,7 @@ export const refreshToken = async (req: Request, res: Response) => {
       isAdmin: user.isAdmin,
     });
 
-    res.json({ accessToken: newAccessToken });
+    return res.json({ accessToken: newAccessToken });
   } catch (error) {
     return res
       .status(403)
@@ -195,18 +213,18 @@ export const logoutUser = async (req: Request, res: Response) => {
       return res.status(200).json({ message: "Already logged out" });
     }
 
-    // Find user with this refresh token
-    const user = await User.findOne({ refreshToken: token });
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+    const user = await User.findOne({ refreshToken: hashedToken });
 
     if (user) {
       user.refreshToken = undefined;
       await user.save();
     }
 
-    // Clear cookie
     res.clearCookie("refreshToken", {
       httpOnly: true,
-      secure: false, // true in production
+      secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
     });
 

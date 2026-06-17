@@ -8,7 +8,7 @@ export interface ICartItem {
 }
 
 export interface GuestCartItem {
-  productId: string;
+  product: string;
   variantId: string;
   quantity: number;
 }
