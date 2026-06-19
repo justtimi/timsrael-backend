@@ -2,25 +2,38 @@ import type { Request, Response } from "express";
 import Product from "../models/Product.js";
 import { uploadToCloudinary } from "../utils/uploadToCloudinary.js";
 import cloudinary from "../config/cloudinary.js";
+import type { ProductSlugParams } from "../types/Product.js";
+import {
+  createProductSchema,
+  updateProductSchema,
+} from "../validators/productValidators.js";
+import { Types } from "mongoose";
 
-interface ProductSlugParams {
-  slug: string;
-}
+const ALLOWED_SORT_FIELDS = ["createdAt", "price", "name"] as const;
+type SortField = (typeof ALLOWED_SORT_FIELDS)[number];
 
 export const createProduct = async (req: Request, res: Response) => {
   try {
+    const result = createProductSchema.safeParse(req.body);
+
+    if (!result.success) {
+      return res.status(400).json({
+        message: "Invalid request data",
+        errors: result.error.flatten().fieldErrors,
+      });
+    }
+
     const {
       name,
       description,
       price,
       discountPrice,
       category,
-      variants,
       featured,
       status,
-    } = req.body;
+    } = result.data;
+    const { variants } = req.body;
 
-    // 1. Handle images
     const files = req.files as Express.Multer.File[];
 
     if (!files || files.length === 0) {
@@ -29,55 +42,55 @@ export const createProduct = async (req: Request, res: Response) => {
       });
     }
 
-    // 2. Upload images to Cloudinary
-    const uploadedImages = await Promise.all(
-      files.map(async (file) => {
-        const result = await uploadToCloudinary(file.buffer);
+    const uploadedImages: { url: string; public_id: string }[] = [];
 
-        return {
+    for (const file of files) {
+      try {
+        const result = await uploadToCloudinary(file.buffer);
+        uploadedImages.push({
           url: result.secure_url,
           public_id: result.public_id,
-        };
-      })
-    );
+        });
+      } catch (uploadError) {
+        await Promise.all(
+          uploadedImages.map((img) =>
+            cloudinary.uploader.destroy(img.public_id),
+          ),
+        );
+        return res.status(500).json({ message: "Image upload failed" });
+      }
+    }
 
-    // 3. Parse variants (because they come as string from form-data)
     let parsedVariants;
 
     try {
       parsedVariants =
-        typeof variants === "string"
-          ? JSON.parse(variants)
-          : variants;
+        typeof variants === "string" ? JSON.parse(variants) : variants;
     } catch (error) {
       return res.status(400).json({
         message: "Invalid variants format",
       });
     }
 
-    // 4. Create product
     const product = await Product.create({
       name,
       description,
       price,
-      discountPrice,
-      category,
+      ...(discountPrice !== undefined && { discountPrice }),
+      category: new Types.ObjectId(category),
       variants: parsedVariants,
       images: uploadedImages,
-      featured,
-      status,
+      ...(featured !== undefined && { featured }),
+      ...(status !== undefined && { status }),
     });
 
-    // 5. Response
     return res.status(201).json({
       message: "Product created successfully",
       product,
     });
-  } catch (error: any) {
-    return res.status(500).json({
-      message: "Server error",
-      error: error.message,
-    });
+  } catch (error) {
+    console.error("[ProductController] createProduct:", error);
+    return res.status(500).json({ message: "An unexpected error occurred" });
   }
 };
 
@@ -94,44 +107,53 @@ export const getProducts = async (req: Request, res: Response) => {
       maxPrice,
     } = req.query;
 
-    const query: any = {};
+    const query: Record<string, unknown> = {};
 
-    // 1. Search by name
+    if (!req.user?.isAdmin) {
+      query.status = "active";
+    }
+
     if (search) {
+      const escapedSearch = search
+        .toString()
+        .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       query.name = {
-        $regex: search,
+        $regex: escapedSearch,
         $options: "i",
       };
     }
 
-    // 2. Filter by category
     if (category) {
       query.category = category;
     }
 
-    // 3. Price filtering
     if (minPrice || maxPrice) {
-      query.price = {};
-
-      if (minPrice) query.price.$gte = Number(minPrice);
-      if (maxPrice) query.price.$lte = Number(maxPrice);
+      const priceFilter: Record<string, number> = {};
+      if (minPrice) priceFilter.$gte = Number(minPrice);
+      if (maxPrice) priceFilter.$lte = Number(maxPrice);
+      query.price = priceFilter;
     }
 
-    // 4. Pagination
-    const skip = (Number(page) - 1) * Number(limit);
+    const pageNum = Math.max(1, parseInt(page as string) || 1);
+    const limitNum = Math.min(
+      100,
+      Math.max(1, parseInt(limit as string) || 10),
+    );
+    const skip = (pageNum - 1) * limitNum;
 
-    // 5. Sort logic
-    const sortOrder: any = {};
-    sortOrder[sort as string] = order === "asc" ? 1 : -1;
+    const sortField = ALLOWED_SORT_FIELDS.includes(sort as SortField)
+      ? (sort as SortField)
+      : "createdAt";
 
-    // 6. Query DB
+    const sortOrder: Record<string, 1 | -1> = {};
+    sortOrder[sortField] = order === "asc" ? 1 : -1;
+
     const products = await Product.find(query)
       .populate("category")
       .sort(sortOrder)
       .skip(skip)
-      .limit(Number(limit));
+      .limit(limitNum);
 
-    // 7. Total count (for frontend pagination)
     const total = await Product.countDocuments(query);
 
     return res.status(200).json({
@@ -139,21 +161,19 @@ export const getProducts = async (req: Request, res: Response) => {
       data: products,
       pagination: {
         total,
-        page: Number(page),
-        pages: Math.ceil(total / Number(limit)),
+        page: pageNum,
+        pages: Math.ceil(total / limitNum),
       },
     });
-  } catch (error: any) {
-    return res.status(500).json({
-      message: "Server error",
-      error: error.message,
-    });
+  } catch (error) {
+    console.error("[ProductController] getProduct:", error);
+    return res.status(500).json({ message: "An unexpected error occurred" });
   }
 };
 
 export const getProductBySlug = async (
   req: Request<ProductSlugParams>,
-  res: Response
+  res: Response,
 ) => {
   try {
     const { slug } = req.params;
@@ -170,11 +190,9 @@ export const getProductBySlug = async (
       message: "Product fetched successfully",
       product,
     });
-  } catch (error: any) {
-    return res.status(500).json({
-      message: "Server error",
-      error: error.message,
-    });
+  } catch (error) {
+    console.error("[ProductController] getProductBySlug:", error);
+    return res.status(500).json({ message: "An unexpected error occurred" });
   }
 };
 
@@ -190,33 +208,38 @@ export const updateProduct = async (req: Request, res: Response) => {
       });
     }
 
+    const result = updateProductSchema.safeParse(req.body);
+
+    if (!result.success) {
+      return res.status(400).json({
+        message: "Invalid request data",
+        errors: result.error.flatten().fieldErrors,
+      });
+    }
+
     const {
       name,
       description,
       price,
       discountPrice,
       category,
-      variants,
       featured,
       status,
-    } = req.body;
+    } = result.data;
+    const { variants } = req.body;
 
-    // 1. Update basic fields
-    if (name) product.name = name;
-    if (description) product.description = description;
-    if (price) product.price = price;
-    if (discountPrice) product.discountPrice = discountPrice;
-    if (category) product.category = category;
+    if (name !== undefined) product.name = name;
+    if (description !== undefined) product.description = description;
+    if (price !== undefined) product.price = price;
+    if (discountPrice !== undefined) product.discountPrice = discountPrice;
+    if (category !== undefined) product.category = new Types.ObjectId(category);
     if (featured !== undefined) product.featured = featured;
-    if (status) product.status = status;
+    if (status !== undefined) product.status = status;
 
-    // 2. Update variants (if provided)
     if (variants) {
       try {
         product.variants =
-          typeof variants === "string"
-            ? JSON.parse(variants)
-            : variants;
+          typeof variants === "string" ? JSON.parse(variants) : variants;
       } catch {
         return res.status(400).json({
           message: "Invalid variants format",
@@ -224,37 +247,44 @@ export const updateProduct = async (req: Request, res: Response) => {
       }
     }
 
-    // 3. Handle new images (optional replacement or addition)
     const files = req.files as Express.Multer.File[];
 
     if (files && files.length > 0) {
-      const uploadedImages = await Promise.all(
-        files.map(async (file) => {
-          const result = await uploadToCloudinary(file.buffer);
-
-          return {
-            url: result.secure_url,
-            public_id: result.public_id,
-          };
-        })
+      await Promise.all(
+        product.images.map((img) => cloudinary.uploader.destroy(img.public_id)),
       );
 
-      // Replace images (you can change this to "push" if you want additive behavior)
+      const uploadedImages: { url: string; public_id: string }[] = [];
+
+      for (const file of files) {
+        try {
+          const result = await uploadToCloudinary(file.buffer);
+          uploadedImages.push({
+            url: result.secure_url,
+            public_id: result.public_id,
+          });
+        } catch (uploadError) {
+          await Promise.all(
+            uploadedImages.map((img) =>
+              cloudinary.uploader.destroy(img.public_id),
+            ),
+          );
+          return res.status(500).json({ message: "Image upload failed" });
+        }
+      }
+
       product.images = uploadedImages;
     }
 
-    // 4. Save (slug middleware will run if name changed)
     await product.save();
 
     return res.status(200).json({
       message: "Product updated successfully",
       product,
     });
-  } catch (error: any) {
-    return res.status(500).json({
-      message: "Server error",
-      error: error.message,
-    });
+  } catch (error) {
+    console.error("[ProductController] updateProduct:", error);
+    return res.status(500).json({ message: "An unexpected error occurred" });
   }
 };
 
@@ -270,25 +300,21 @@ export const deleteProduct = async (req: Request, res: Response) => {
       });
     }
 
-    // 1. Delete images from Cloudinary
     await Promise.all(
       product.images.map(async (img) => {
         if (img.public_id) {
           await cloudinary.uploader.destroy(img.public_id);
         }
-      })
+      }),
     );
 
-    // 2. Delete product from DB
     await product.deleteOne();
 
     return res.status(200).json({
       message: "Product deleted successfully",
     });
-  } catch (error: any) {
-    return res.status(500).json({
-      message: "Server error",
-      error: error.message,
-    });
+  } catch (error) {
+    console.error("[ProductController] deleteProduct:", error);
+    return res.status(500).json({ message: "An unexpected error occurred" });
   }
 };

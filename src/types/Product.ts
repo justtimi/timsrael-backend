@@ -12,6 +12,10 @@ interface IImage {
   public_id: string;
 }
 
+export interface ProductSlugParams {
+  slug: string;
+}
+
 interface IProduct {
   name: string;
   slug: string;
