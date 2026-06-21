@@ -1,9 +1,10 @@
 import { Document, Types } from "mongoose";
 
 interface IVariant {
-  _id: Types.ObjectId;
+  _id?: Types.ObjectId;
   size: string;
   color: string;
+  hexCode: string;
   stock: number;
 }
 

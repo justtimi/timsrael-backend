@@ -51,6 +51,11 @@ const productSchema = new Schema<IProductDocument>(
           required: true,
         },
 
+        hexCode: {
+          type: String,
+          required: true,
+        },
+
         stock: {
           type: Number,
           required: true,

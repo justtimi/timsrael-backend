@@ -48,7 +48,7 @@ export const createOrder = async (req: Request, res: Response) => {
       }
 
       const variant = product.variants.find(
-        (v) => v._id.toString() === item.variantId,
+        (v) => v._id?.toString() === item.variantId,
       );
 
       if (!variant) {

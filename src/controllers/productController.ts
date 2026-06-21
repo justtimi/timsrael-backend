@@ -32,8 +32,8 @@ export const createProduct = async (req: Request, res: Response) => {
       featured,
       status,
       tags,
+      variants,
     } = result.data;
-    const { variants } = req.body;
 
     const files = req.files as Express.Multer.File[];
 
@@ -68,24 +68,13 @@ export const createProduct = async (req: Request, res: Response) => {
       }
     }
 
-    let parsedVariants;
-
-    try {
-      parsedVariants =
-        typeof variants === "string" ? JSON.parse(variants) : variants;
-    } catch (error) {
-      return res.status(400).json({
-        message: "Invalid variants format",
-      });
-    }
-
     const product = await Product.create({
       name,
       description,
       price,
       ...(discountPrice !== undefined && { discountPrice }),
       category: new Types.ObjectId(category),
-      variants: parsedVariants,
+      variants: variants,
       images: uploadedImages,
       ...(featured !== undefined && { featured }),
       ...(status !== undefined && { status }),
@@ -247,8 +236,8 @@ export const updateProduct = async (req: Request, res: Response) => {
       featured,
       status,
       tags,
+      variants,
     } = result.data;
-    const { variants } = req.body;
 
     if (name !== undefined) product.name = name;
     if (description !== undefined) product.description = description;
@@ -258,17 +247,7 @@ export const updateProduct = async (req: Request, res: Response) => {
     if (featured !== undefined) product.featured = featured;
     if (status !== undefined) product.status = status;
     if (tags !== undefined) product.tags = tags;
-
-    if (variants) {
-      try {
-        product.variants =
-          typeof variants === "string" ? JSON.parse(variants) : variants;
-      } catch {
-        return res.status(400).json({
-          message: "Invalid variants format",
-        });
-      }
-    }
+    if (variants !== undefined) product.variants = variants;
 
     const files = req.files as Express.Multer.File[];
 
