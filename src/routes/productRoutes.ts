@@ -5,6 +5,8 @@ import {
   getProductBySlug,
   updateProduct,
   deleteProduct,
+  getFeaturedProducts,
+  incrementProductView
 } from "../controllers/productController.js";
 import { upload } from "../middleware/uploadMiddleware.js";
 import { protect } from "../middleware/authMiddleware.js";
@@ -17,6 +19,8 @@ router.put("/:id", protect, admin, upload.array("images"), updateProduct);
 router.delete("/:id", protect, admin, deleteProduct);
 
 router.get("/", getProducts);
+router.get("/featured", getFeaturedProducts);
+router.post("/:id/view", incrementProductView);
 router.get("/:slug", getProductBySlug);
 
 export default router;

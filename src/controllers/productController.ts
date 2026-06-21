@@ -205,6 +205,10 @@ export const updateProduct = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
+    if (!id || typeof id !== "string" || !Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid product ID" });
+    }
+
     const product = await Product.findById(id);
 
     if (!product || product.isDeleted) {
@@ -295,6 +299,10 @@ export const deleteProduct = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
+    if (!id || typeof id !== "string" || !Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid product ID" });
+    }
+
     const product = await Product.findById(id);
 
     if (!product) {
@@ -311,6 +319,48 @@ export const deleteProduct = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("[ProductController] deleteProduct:", error);
+    return res.status(500).json({ message: "An unexpected error occurred" });
+  }
+};
+
+export const getFeaturedProducts = async (req: Request, res: Response) => {
+  try {
+    const products = await Product.find({
+      featured: true,
+      status: "active",
+      isDeleted: { $ne: true },
+    }).populate("category");
+
+    return res.status(200).json({
+      message: "Featured products fetched successfully",
+      data: products,
+    });
+  } catch (error) {
+    console.error("[ProductController] getFeaturedProducts:", error);
+    return res.status(500).json({ message: "An unexpected error occurred" });
+  }
+};
+
+export const incrementProductView = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    if (!id || typeof id !== "string" || !Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid product ID" });
+    }
+
+    const product = await Product.findOneAndUpdate(
+      { _id: new Types.ObjectId(id), isDeleted: { $ne: true } },
+      { $inc: { views: 1 } },
+    );
+
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    return res.status(200).json({ message: "View recorded" });
+  } catch (error) {
+    console.error("[ProductController] incrementProductView:", error);
     return res.status(500).json({ message: "An unexpected error occurred" });
   }
 };

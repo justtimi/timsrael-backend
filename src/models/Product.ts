@@ -87,6 +87,10 @@ const productSchema = new Schema<IProductDocument>(
       type: Boolean,
       default: false,
     },
+    views: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,
