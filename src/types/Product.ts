@@ -39,6 +39,7 @@ interface IProduct {
   updatedAt: Date;
   isDeleted: boolean;
   views: number;
+  tags: string[];
 }
 
 export interface IProductDocument extends IProduct, Document {}

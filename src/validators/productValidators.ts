@@ -16,6 +16,7 @@ export const createProductSchema = z.object({
   category: objectId,
   featured: z.boolean().optional(),
   status: z.enum(["active", "draft"]).optional(),
+  tags: z.array(z.string().min(1)).optional(),
 });
 
 export const updateProductSchema = createProductSchema.partial();

@@ -31,6 +31,7 @@ export const createProduct = async (req: Request, res: Response) => {
       category,
       featured,
       status,
+      tags,
     } = result.data;
     const { variants } = req.body;
 
@@ -40,6 +41,12 @@ export const createProduct = async (req: Request, res: Response) => {
       return res.status(400).json({
         message: "Product images are required",
       });
+    }
+
+    if (files.length > 6) {
+      return res
+        .status(400)
+        .json({ message: "Maximum 6 images allowed per product" });
     }
 
     const uploadedImages: { url: string; public_id: string }[] = [];
@@ -82,6 +89,7 @@ export const createProduct = async (req: Request, res: Response) => {
       images: uploadedImages,
       ...(featured !== undefined && { featured }),
       ...(status !== undefined && { status }),
+      ...(tags !== undefined && { tags }),
     });
 
     return res.status(201).json({
@@ -105,6 +113,7 @@ export const getProducts = async (req: Request, res: Response) => {
       order = "desc",
       minPrice,
       maxPrice,
+      tags,
     } = req.query;
 
     const query: Record<string, unknown> = {};
@@ -128,6 +137,10 @@ export const getProducts = async (req: Request, res: Response) => {
 
     if (category) {
       query.category = category;
+    }
+
+    if (tags) {
+      query.tags = { $in: Array.isArray(tags) ? tags : [tags] };
     }
 
     if (minPrice || maxPrice) {
@@ -233,6 +246,7 @@ export const updateProduct = async (req: Request, res: Response) => {
       category,
       featured,
       status,
+      tags,
     } = result.data;
     const { variants } = req.body;
 
@@ -243,6 +257,7 @@ export const updateProduct = async (req: Request, res: Response) => {
     if (category !== undefined) product.category = new Types.ObjectId(category);
     if (featured !== undefined) product.featured = featured;
     if (status !== undefined) product.status = status;
+    if (tags !== undefined) product.tags = tags;
 
     if (variants) {
       try {
@@ -258,6 +273,12 @@ export const updateProduct = async (req: Request, res: Response) => {
     const files = req.files as Express.Multer.File[];
 
     if (files && files.length > 0) {
+      if (files.length > 6) {
+        return res
+          .status(400)
+          .json({ message: "Maximum 6 images allowed per product" });
+      }
+
       await Promise.all(
         product.images.map((img) => cloudinary.uploader.destroy(img.public_id)),
       );
@@ -391,6 +412,12 @@ export const addProductImage = async (req: Request, res: Response) => {
 
     let uploadedImage: { url: string; public_id: string };
 
+    if (product.images.length >= 6) {
+      return res
+        .status(400)
+        .json({ message: "Maximum 6 images allowed per product" });
+    }
+
     try {
       const result = await uploadToCloudinary(file.buffer);
       uploadedImage = {
@@ -442,6 +469,12 @@ export const removeProductImage = async (req: Request, res: Response) => {
 
     if (!image) {
       return res.status(404).json({ message: "Image not found on product" });
+    }
+
+    if (product.images.length <= 1) {
+      return res
+        .status(400)
+        .json({ message: "Product must have at least one image" });
     }
 
     await cloudinary.uploader.destroy(image.public_id);
