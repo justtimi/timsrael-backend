@@ -119,10 +119,11 @@ export const getProducts = async (req: Request, res: Response) => {
       const escapedSearch = search
         .toString()
         .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      query.name = {
-        $regex: escapedSearch,
-        $options: "i",
-      };
+
+      query.$or = [
+        { name: { $regex: escapedSearch, $options: "i" } },
+        { description: { $regex: escapedSearch, $options: "i" } },
+      ];
     }
 
     if (category) {
@@ -361,6 +362,102 @@ export const incrementProductView = async (req: Request, res: Response) => {
     return res.status(200).json({ message: "View recorded" });
   } catch (error) {
     console.error("[ProductController] incrementProductView:", error);
+    return res.status(500).json({ message: "An unexpected error occurred" });
+  }
+};
+
+export const addProductImage = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    if (!id || typeof id !== "string" || !Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid product ID" });
+    }
+
+    const product = await Product.findOne({
+      _id: id,
+      isDeleted: { $ne: true },
+    });
+
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    const file = req.file as Express.Multer.File;
+
+    if (!file) {
+      return res.status(400).json({ message: "Image is required" });
+    }
+
+    let uploadedImage: { url: string; public_id: string };
+
+    try {
+      const result = await uploadToCloudinary(file.buffer);
+      uploadedImage = {
+        url: result.secure_url,
+        public_id: result.public_id,
+      };
+    } catch (uploadError) {
+      return res.status(500).json({ message: "Image upload failed" });
+    }
+
+    product.images.push(uploadedImage);
+    await product.save();
+
+    return res.status(201).json({
+      message: "Image added successfully",
+      product,
+    });
+  } catch (error) {
+    console.error("[ProductController] addProductImage:", error);
+    return res.status(500).json({ message: "An unexpected error occurred" });
+  }
+};
+
+export const removeProductImage = async (req: Request, res: Response) => {
+  try {
+    const { id, imageId } = req.params;
+
+    if (
+      !id ||
+      typeof id !== "string" ||
+      !Types.ObjectId.isValid(id) ||
+      !imageId ||
+      typeof imageId !== "string" ||
+      !Types.ObjectId.isValid(imageId)
+    ) {
+      return res.status(400).json({ message: "Invalid ID" });
+    }
+
+    const product = await Product.findOne({
+      _id: id,
+      isDeleted: { $ne: true },
+    });
+
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    const image = product.images.find((img) => img._id?.toString() === imageId);
+
+    if (!image) {
+      return res.status(404).json({ message: "Image not found on product" });
+    }
+
+    await cloudinary.uploader.destroy(image.public_id);
+
+    product.images = product.images.filter(
+      (img) => img._id?.toString() !== imageId,
+    );
+
+    await product.save();
+
+    return res.status(200).json({
+      message: "Image removed successfully",
+      product,
+    });
+  } catch (error) {
+    console.error("[ProductController] removeProductImage:", error);
     return res.status(500).json({ message: "An unexpected error occurred" });
   }
 };

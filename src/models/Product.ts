@@ -106,6 +106,8 @@ productSchema.pre("save", function (this: HydratedDocument<IProductDocument>) {
   }
 });
 
+productSchema.index({ name: "text", description: "text" });
+
 const Product = model<IProductDocument>("Product", productSchema);
 
 export default Product;

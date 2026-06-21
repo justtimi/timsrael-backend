@@ -8,6 +8,7 @@ interface IVariant {
 }
 
 interface IImage {
+  _id?: Types.ObjectId;
   url: string;
   public_id: string;
 }
