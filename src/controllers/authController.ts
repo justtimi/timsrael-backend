@@ -5,12 +5,22 @@ import { User } from "../models/User.js";
 import { generateAccessToken, generateRefreshToken } from "../config/jwt.js";
 import jwt from "jsonwebtoken";
 import { mergeGuestCartWithUserCart } from "../utils/mergeCart.js";
+import { registerSchema, loginSchema } from "../validators/authValidators.js";
 
 const BCRYPT_SALT_ROUNDS = 12;
 
 export const registerUser = async (req: Request, res: Response) => {
   try {
-    const { name, email, password } = req.body;
+    const result = registerSchema.safeParse(req.body);
+
+    if (!result.success) {
+      return res.status(400).json({
+        message: "Invalid request data",
+        errors: result.error.flatten().fieldErrors,
+      });
+    }
+
+    const { name, email, password } = result.data;
 
     const userExists = await User.findOne({ email });
     if (userExists) {
@@ -37,6 +47,15 @@ export const registerUser = async (req: Request, res: Response) => {
 
 export const loginUser = async (req: Request, res: Response) => {
   try {
+    const result = loginSchema.safeParse(req.body);
+
+    if (!result.success) {
+      return res.status(400).json({
+        message: "Invalid request data",
+        errors: result.error.flatten().fieldErrors,
+      });
+    }
+
     const { email, password, guestCart } = req.body;
 
     const user = await User.findOne({ email });
