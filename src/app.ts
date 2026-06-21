@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
+import { errorHandler } from "./middleware/errorHandler.js";
 
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
@@ -39,5 +40,7 @@ app.get("/", (req, res) => {
     message: "Timsrael Backend API is running 🚀"
   });
 });
+
+app.use(errorHandler);
 
 export default app;
