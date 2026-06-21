@@ -83,6 +83,10 @@ const productSchema = new Schema<IProductDocument>(
       enum: ["active", "draft"],
       default: "draft",
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

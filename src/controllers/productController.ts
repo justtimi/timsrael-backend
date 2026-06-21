@@ -109,6 +109,8 @@ export const getProducts = async (req: Request, res: Response) => {
 
     const query: Record<string, unknown> = {};
 
+    query.isDeleted = { $ne: true };
+
     if (!req.user?.isAdmin) {
       query.status = "active";
     }
@@ -178,7 +180,10 @@ export const getProductBySlug = async (
   try {
     const { slug } = req.params;
 
-    const product = await Product.findOne({ slug }).populate("category");
+    const product = await Product.findOne({
+      slug,
+      isDeleted: { $ne: true },
+    }).populate("category");
 
     if (!product) {
       return res.status(404).json({
@@ -202,10 +207,8 @@ export const updateProduct = async (req: Request, res: Response) => {
 
     const product = await Product.findById(id);
 
-    if (!product) {
-      return res.status(404).json({
-        message: "Product not found",
-      });
+    if (!product || product.isDeleted) {
+      return res.status(404).json({ message: "Product not found" });
     }
 
     const result = updateProductSchema.safeParse(req.body);
@@ -300,15 +303,8 @@ export const deleteProduct = async (req: Request, res: Response) => {
       });
     }
 
-    await Promise.all(
-      product.images.map(async (img) => {
-        if (img.public_id) {
-          await cloudinary.uploader.destroy(img.public_id);
-        }
-      }),
-    );
-
-    await product.deleteOne();
+    product.isDeleted = true;
+    await product.save();
 
     return res.status(200).json({
       message: "Product deleted successfully",
