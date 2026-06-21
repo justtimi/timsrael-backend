@@ -100,6 +100,24 @@ const productSchema = new Schema<IProductDocument>(
       type: [String],
       default: [],
     },
+    sizeChart: [
+      {
+        label: {
+          type: String,
+          required: true,
+        },
+        measurements: {
+          type: Map,
+          of: Number,
+          default: {},
+        },
+      },
+    ],
+
+    requiresMeasurements: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

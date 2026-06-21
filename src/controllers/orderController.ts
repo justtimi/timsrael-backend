@@ -4,6 +4,7 @@ import Product from "../models/Product.js";
 import Order from "../models/Order.js";
 import { Types } from "mongoose";
 import { createOrderSchema } from "../validators/orderValidators.js";
+import mongoose from "mongoose";
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   pending: ["paid", "cancelled"],
@@ -14,11 +15,16 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 };
 
 export const createOrder = async (req: Request, res: Response) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const userId = req.user.id;
     const result = createOrderSchema.safeParse(req.body);
 
     if (!result.success) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({
         message: "Invalid request data",
         errors: result.error.flatten().fieldErrors,
@@ -27,15 +33,18 @@ export const createOrder = async (req: Request, res: Response) => {
 
     const { shippingAddress } = result.data;
 
-    const cart = await Cart.findOne({ user: userId });
+    const cart = await Cart.findOne({ user: userId }).session(session);
 
     if (!cart || cart.items.length === 0) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({ message: "Cart is empty" });
     }
 
-    // Fetch all products in one query
     const productIds = cart.items.map((item) => item.product);
-    const products = await Product.find({ _id: { $in: productIds } });
+    const products = await Product.find({ _id: { $in: productIds } }).session(
+      session,
+    );
     const productMap = new Map(products.map((p) => [p._id.toString(), p]));
 
     const orderItems = [];
@@ -44,6 +53,8 @@ export const createOrder = async (req: Request, res: Response) => {
       const product = productMap.get(item.product.toString());
 
       if (!product) {
+        await session.abortTransaction();
+        session.endSession();
         return res.status(404).json({ message: "Product not found in cart" });
       }
 
@@ -52,28 +63,32 @@ export const createOrder = async (req: Request, res: Response) => {
       );
 
       if (!variant) {
+        await session.abortTransaction();
+        session.endSession();
         return res.status(404).json({ message: "Variant not found" });
       }
 
       if (variant.stock < item.quantity) {
+        await session.abortTransaction();
+        session.endSession();
         return res.status(400).json({
           message: `Only ${variant.stock} units left for ${product.name}`,
         });
       }
 
-      // Atomic stock deduction — prevents race conditions
       const updated = await Product.updateOne(
         {
           _id: product._id,
           "variants._id": new Types.ObjectId(item.variantId),
           "variants.$.stock": { $gte: item.quantity },
         },
-        {
-          $inc: { "variants.$.stock": -item.quantity },
-        },
+        { $inc: { "variants.$.stock": -item.quantity } },
+        { session },
       );
 
       if (updated.modifiedCount === 0) {
+        await session.abortTransaction();
+        session.endSession();
         return res.status(400).json({
           message: `Stock changed during checkout for ${product.name}. Please review your cart.`,
         });
@@ -83,25 +98,35 @@ export const createOrder = async (req: Request, res: Response) => {
         product: product._id,
         variantId: item.variantId,
         quantity: item.quantity,
-        price: item.price, // use price stored at time of adding to cart
+        price: item.price,
       });
     }
 
-    const order = await Order.create({
-      user: userId,
-      items: orderItems,
-      totalAmount: cart.totalPrice,
-      shippingAddress,
-    });
+    const [order] = await Order.create(
+      [
+        {
+          user: userId,
+          items: orderItems,
+          totalAmount: cart.totalPrice,
+          shippingAddress,
+        },
+      ],
+      { session },
+    );
 
     cart.items = [];
-    await cart.save();
+    await cart.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
 
     return res.status(201).json({
       message: "Order placed successfully",
       order,
     });
   } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
     console.error("[OrderController] createOrder:", error);
     return res.status(500).json({ message: "An unexpected error occurred" });
   }

@@ -9,6 +9,11 @@ const variantSchema = z.object({
   stock: z.number().int().min(0),
 });
 
+const sizeChartEntrySchema = z.object({
+  label: z.string().min(1),
+  measurements: z.record(z.string(), z.number().min(0)),
+});
+
 export const createProductSchema = z.object({
   name: z.string().min(1),
   description: z.string().min(1),
@@ -19,6 +24,8 @@ export const createProductSchema = z.object({
   status: z.enum(["active", "draft"]).optional(),
   tags: z.array(z.string().min(1)).optional(),
   variants: z.array(variantSchema).min(1, "At least one variant is required"),
+  sizeChart: z.array(sizeChartEntrySchema).optional(),
+  requiresMeasurements: z.boolean().optional(),
 });
 
 export const updateProductSchema = createProductSchema.partial();

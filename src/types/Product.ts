@@ -18,6 +18,11 @@ export interface ProductSlugParams {
   slug: string;
 }
 
+export interface ISizeChartEntry {
+  label: string;
+  measurements: Record<string, number>;
+}
+
 interface IProduct {
   name: string;
   slug: string;
@@ -41,6 +46,8 @@ interface IProduct {
   isDeleted: boolean;
   views: number;
   tags: string[];
+  sizeChart: ISizeChartEntry[];
+  requiresMeasurements: boolean;
 }
 
 export interface IProductDocument extends IProduct, Document {}
