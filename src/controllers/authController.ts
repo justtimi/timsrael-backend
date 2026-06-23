@@ -82,6 +82,7 @@ export const loginUser = async (req: Request, res: Response) => {
     const accessToken = generateAccessToken({
       id: user._id.toString(),
       isAdmin: user.isAdmin,
+      email: user.email,
     });
 
     const refreshToken = generateRefreshToken({
@@ -214,6 +215,7 @@ export const refreshToken = async (req: Request, res: Response) => {
     const newAccessToken = generateAccessToken({
       id: user._id.toString(),
       isAdmin: user.isAdmin,
+      email: user.email,
     });
 
     return res.json({ accessToken: newAccessToken });

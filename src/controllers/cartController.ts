@@ -43,7 +43,7 @@ export const addToCart = async (req: Request, res: Response) => {
     }
 
     const variant = product.variants.find(
-      (v) => v._id.toString() === variantId,
+      (v) => v._id?.toString() === variantId,
     );
 
     if (!variant) {
@@ -166,7 +166,7 @@ export const updateCartItem = async (req: Request, res: Response) => {
       }
 
       const variant = product.variants.find(
-        (v) => v._id.toString() === variantId,
+        (v) => v._id?.toString() === variantId,
       );
 
       if (!variant) {
@@ -207,7 +207,7 @@ export const removeCartItem = async (req: Request, res: Response) => {
       });
     }
 
-    const { productId, variantId} = result.data;
+    const { productId, variantId } = result.data;
 
     const cart = await Cart.findOne({ user: userId });
 

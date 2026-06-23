@@ -12,14 +12,19 @@ import productRoutes from "./routes/productRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import cartRoutes from "./routes/cartRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
 
 const app = express();
 
+app.use("/api/payments", paymentRoutes);
+
 // Middleware
-app.use(cors({
-  origin: "http://localhost:3000",
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true,
+  }),
+);
 app.use(helmet());
 app.use(morgan("dev"));
 app.use(express.json());
@@ -37,7 +42,7 @@ app.use("/api/orders", orderRoutes);
 // Test route
 app.get("/", (req, res) => {
   res.json({
-    message: "Timsrael Backend API is running 🚀"
+    message: "Timsrael Backend API is running 🚀",
   });
 });
 
