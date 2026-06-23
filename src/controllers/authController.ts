@@ -6,6 +6,7 @@ import { generateAccessToken, generateRefreshToken } from "../config/jwt.js";
 import jwt from "jsonwebtoken";
 import { mergeGuestCartWithUserCart } from "../utils/mergeCart.js";
 import { registerSchema, loginSchema } from "../validators/authValidators.js";
+import { sendPasswordResetEmail } from "../utils/email.js";
 
 const BCRYPT_SALT_ROUNDS = 12;
 
@@ -146,7 +147,11 @@ export const forgotPassword = async (req: Request, res: Response) => {
 
     await user.save();
 
-    console.log(`[DEV] Password reset token for ${user.email}: ${resetToken}`);
+    try {
+      await sendPasswordResetEmail(user.email, resetToken);
+    } catch (emailError) {
+      console.error("[AuthController] Failed to send reset email:", emailError);
+    }
 
     return res.status(200).json({
       message:

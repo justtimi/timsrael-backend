@@ -5,6 +5,7 @@ import Order from "../models/Order.js";
 import { Types } from "mongoose";
 import { createOrderSchema } from "../validators/orderValidators.js";
 import mongoose from "mongoose";
+import { sendOrderConfirmationEmail } from "../utils/email.js";
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   pending: ["paid", "cancelled"],
@@ -119,6 +120,30 @@ export const createOrder = async (req: Request, res: Response) => {
 
     await session.commitTransaction();
     session.endSession();
+
+    try {
+      const populatedOrder = await Order.findById(order._id).populate<{
+        items: { product: { name: string }; quantity: number; price: number }[];
+      }>("items.product", "name");
+
+      if (populatedOrder) {
+        await sendOrderConfirmationEmail(req.user.email, {
+          orderId: order._id.toString(),
+          totalAmount: order.totalAmount,
+          items: populatedOrder.items.map((item) => ({
+            name: item.product.name,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+        });
+      }
+    } catch (emailError) {
+      console.error(
+        "[OrderController] Failed to send order confirmation:",
+        emailError,
+      );
+      // Order is already created — don't fail the request over email
+    }
 
     return res.status(201).json({
       message: "Order placed successfully",
