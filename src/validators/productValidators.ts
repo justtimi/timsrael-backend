@@ -26,6 +26,7 @@ export const createProductSchema = z.object({
   variants: z.array(variantSchema).min(1, "At least one variant is required"),
   sizeChart: z.array(sizeChartEntrySchema).optional(),
   requiresMeasurements: z.boolean().optional(),
+  lowStockThreshold: z.number().int().min(0).optional(),
 });
 
 export const updateProductSchema = createProductSchema.partial();

@@ -100,6 +100,11 @@ const productSchema = new Schema<IProductDocument>(
       type: [String],
       default: [],
     },
+    lowStockThreshold: {
+      type: Number,
+      default: 5,
+      min: 0,
+    },
     sizeChart: [
       {
         label: {

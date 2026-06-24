@@ -48,6 +48,7 @@ interface IProduct {
   tags: string[];
   sizeChart: ISizeChartEntry[];
   requiresMeasurements: boolean;
+  lowStockThreshold: number;
 }
 
 export interface IProductDocument extends IProduct, Document {}

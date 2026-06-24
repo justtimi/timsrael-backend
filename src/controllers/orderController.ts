@@ -5,10 +5,15 @@ import Order from "../models/Order.js";
 import { Types } from "mongoose";
 import { createOrderSchema } from "../validators/orderValidators.js";
 import mongoose from "mongoose";
-import { sendOrderConfirmationEmail } from "../utils/email.js";
 import Address from "../models/Address.js";
 import type { ShippingAddressInput } from "../validators/orderValidators.js";
 import { logInventoryChange } from "../utils/inventoryLogger.js";
+import type { TrackingStatus } from "../types/Order.js";
+import { z } from "zod";
+import {
+  sendOrderConfirmationEmail,
+  sendLowStockAlertEmail,
+} from "../utils/email.js";
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   pending: ["paid", "cancelled"],
@@ -181,6 +186,51 @@ export const createOrder = async (req: Request, res: Response) => {
         emailError,
       );
       // Order is already created — don't fail the request over email
+    }
+
+    try {
+      const lowStockItems: {
+        productName: string;
+        variantId: string;
+        color: string;
+        size: string;
+        currentStock: number;
+        threshold: number;
+      }[] = [];
+
+      for (const item of orderItems) {
+        const product = productMap.get(item.product.toString());
+
+        if (!product) continue;
+
+        const variant = product.variants.find(
+          (v) => v._id?.toString() === item.variantId,
+        );
+
+        if (!variant) continue;
+
+        const currentStock = variant.stock - item.quantity;
+
+        if (currentStock <= product.lowStockThreshold) {
+          lowStockItems.push({
+            productName: product.name,
+            variantId: item.variantId,
+            color: variant.color,
+            size: variant.size,
+            currentStock,
+            threshold: product.lowStockThreshold,
+          });
+        }
+      }
+
+      if (lowStockItems.length > 0) {
+        await sendLowStockAlertEmail(lowStockItems);
+      }
+    } catch (alertError) {
+      console.error(
+        "[OrderController] Failed to send low stock alert:",
+        alertError,
+      );
     }
 
     return res.status(201).json({
@@ -407,6 +457,67 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("[OrderController] updateOrderStatus:", error);
+    return res.status(500).json({ message: "An unexpected error occurred" });
+  }
+};
+
+const trackingEventSchema = z.object({
+  status: z.enum([
+    "processing",
+    "shipped",
+    "out_for_delivery",
+    "delivered",
+    "failed_delivery",
+  ]),
+  note: z.string().min(1).max(500).optional(),
+});
+
+export const addTrackingEvent = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    if (!id || typeof id !== "string" || !Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid order ID" });
+    }
+
+    const result = trackingEventSchema.safeParse(req.body);
+
+    if (!result.success) {
+      return res.status(400).json({
+        message: "Invalid request data",
+        errors: result.error.flatten().fieldErrors,
+      });
+    }
+
+    const { status, note } = result.data;
+
+    const order = await Order.findById(id);
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    if (order.status === "cancelled") {
+      return res.status(400).json({
+        message: "Cannot add tracking to a cancelled order",
+      });
+    }
+
+    const trackingEvent = {
+      status: status as TrackingStatus,
+      timestamp: new Date(),
+      ...(note !== undefined && { note }),
+    };
+
+    order.trackingHistory.push(trackingEvent);
+    await order.save();
+
+    return res.status(201).json({
+      message: "Tracking event added successfully",
+      order,
+    });
+  } catch (error) {
+    console.error("[OrderController] addTrackingEvent:", error);
     return res.status(500).json({ message: "An unexpected error occurred" });
   }
 };

@@ -30,7 +30,33 @@ const shippingSchema = new Schema(
     phone: { type: String, required: true },
     address: { type: String, required: true },
     city: { type: String, required: true },
+    state: { type: String, required: true },
     country: { type: String, required: true },
+  },
+  { _id: false },
+);
+
+const trackingEventSchema = new Schema(
+  {
+    status: {
+      type: String,
+      enum: [
+        "processing",
+        "shipped",
+        "out_for_delivery",
+        "delivered",
+        "failed_delivery",
+      ],
+      required: true,
+    },
+    note: {
+      type: String,
+      trim: true,
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now,
+    },
   },
   { _id: false },
 );
@@ -57,6 +83,11 @@ const orderSchema = new Schema<IOrderDocument>(
     },
 
     shippingAddress: { type: shippingSchema, required: true },
+
+    trackingHistory: {
+      type: [trackingEventSchema],
+      default: [],
+    },
   },
   {
     timestamps: true,

@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { passwordResetTemplate } from "../emails/passwordResetTemplate.js";
 import { orderConfirmationTemplate } from "../emails/orderConfirmationTemplate.js";
+import { lowStockAlertTemplate } from "../emails/lowStockAlertTemplate.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -35,5 +36,30 @@ export const sendOrderConfirmationEmail = async (
       orderData.totalAmount,
       orderData.items,
     ),
+  });
+};
+
+export const sendLowStockAlertEmail = async (
+  items: {
+    productName: string;
+    variantId: string;
+    color: string;
+    size: string;
+    currentStock: number;
+    threshold: number;
+  }[],
+) => {
+  const adminEmail = process.env.ADMIN_EMAIL;
+
+  if (!adminEmail) {
+    console.error("[Email] ADMIN_EMAIL is not set — skipping low stock alert");
+    return;
+  }
+
+  await resend.emails.send({
+    from: "Timsrael Clothing <onboarding@resend.dev>",
+    to: adminEmail,
+    subject: "Low Stock Alert — Timsrael Clothing",
+    html: lowStockAlertTemplate(items),
   });
 };
