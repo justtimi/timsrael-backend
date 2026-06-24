@@ -6,6 +6,8 @@ import { Types } from "mongoose";
 import { createOrderSchema } from "../validators/orderValidators.js";
 import mongoose from "mongoose";
 import { sendOrderConfirmationEmail } from "../utils/email.js";
+import Address from "../models/Address.js";
+import type { ShippingAddressInput } from "../validators/orderValidators.js";
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   pending: ["paid", "cancelled"],
@@ -32,7 +34,33 @@ export const createOrder = async (req: Request, res: Response) => {
       });
     }
 
-    const { shippingAddress } = result.data;
+    const { shippingAddress: shippingAddressInput, addressId } = result.data;
+
+    let shippingAddress: ShippingAddressInput;
+
+    if (addressId) {
+      const savedAddress = await Address.findOne({
+        _id: addressId,
+        user: userId,
+      }).session(session);
+
+      if (!savedAddress) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(404).json({ message: "Address not found" });
+      }
+
+      shippingAddress = {
+        fullName: savedAddress.fullName,
+        phone: savedAddress.phone,
+        address: savedAddress.address,
+        city: savedAddress.city,
+        state: savedAddress.state,
+        country: savedAddress.country,
+      };
+    } else {
+      shippingAddress = shippingAddressInput!;
+    }
 
     const cart = await Cart.findOne({ user: userId }).session(session);
 
