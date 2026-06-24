@@ -16,6 +16,7 @@ import paymentRoutes from "./routes/paymentRoutes.js";
 import wishlistRoutes from "./routes/wishlistRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import addressRoutes from "./routes/addressRoutes.js";
+import inventoryRoutes from "./routes/inventoryRoutes.js";
 
 const app = express();
 
@@ -38,11 +39,12 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/products", productRoutes);
+app.use("/api/products/:id/inventory", inventoryRoutes);
+app.use("/api/products/:productId/reviews", reviewRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/wishlist", wishlistRoutes);
-app.use("/api/products/:productId/reviews", reviewRoutes);
 app.use("/api/addresses", addressRoutes);
 
 // Test route

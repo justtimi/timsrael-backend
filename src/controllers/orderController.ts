@@ -8,6 +8,7 @@ import mongoose from "mongoose";
 import { sendOrderConfirmationEmail } from "../utils/email.js";
 import Address from "../models/Address.js";
 import type { ShippingAddressInput } from "../validators/orderValidators.js";
+import { logInventoryChange } from "../utils/inventoryLogger.js";
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   pending: ["paid", "cancelled"],
@@ -122,6 +123,15 @@ export const createOrder = async (req: Request, res: Response) => {
           message: `Stock changed during checkout for ${product.name}. Please review your cart.`,
         });
       }
+
+      await logInventoryChange({
+        productId: product._id.toString(),
+        variantId: item.variantId,
+        quantityChange: -item.quantity,
+        reason: "purchase",
+        performedBy: userId,
+        session,
+      });
 
       orderItems.push({
         product: product._id,
@@ -278,6 +288,18 @@ export const cancelMyOrder = async (req: Request, res: Response) => {
           },
           { $inc: { "variants.$.stock": item.quantity } },
         ),
+      ),
+    );
+
+    await Promise.all(
+      order.items.map((item) =>
+        logInventoryChange({
+          productId: item.product.toString(),
+          variantId: item.variantId,
+          quantityChange: item.quantity,
+          reason: "cancellation",
+          performedBy: userId,
+        }),
       ),
     );
 
