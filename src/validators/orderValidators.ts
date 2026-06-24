@@ -9,6 +9,17 @@ const shippingAddressSchema = z.object({
   country: z.string().min(1),
 });
 
+export const trackingEventSchema = z.object({
+  status: z.enum([
+    "processing",
+    "shipped",
+    "out_for_delivery",
+    "delivered",
+    "failed_delivery",
+  ]),
+  note: z.string().min(1).max(500).optional(),
+});
+
 export const createOrderSchema = z
   .object({
     addressId: z.string().regex(/^[a-f\d]{24}$/i, "Invalid ID format").optional(),

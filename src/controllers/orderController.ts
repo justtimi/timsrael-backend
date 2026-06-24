@@ -9,7 +9,7 @@ import Address from "../models/Address.js";
 import type { ShippingAddressInput } from "../validators/orderValidators.js";
 import { logInventoryChange } from "../utils/inventoryLogger.js";
 import type { TrackingStatus } from "../types/Order.js";
-import { z } from "zod";
+import { trackingEventSchema } from "../validators/orderValidators.js";
 import {
   sendOrderConfirmationEmail,
   sendLowStockAlertEmail,
@@ -460,17 +460,6 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
     return res.status(500).json({ message: "An unexpected error occurred" });
   }
 };
-
-const trackingEventSchema = z.object({
-  status: z.enum([
-    "processing",
-    "shipped",
-    "out_for_delivery",
-    "delivered",
-    "failed_delivery",
-  ]),
-  note: z.string().min(1).max(500).optional(),
-});
 
 export const addTrackingEvent = async (req: Request, res: Response) => {
   try {

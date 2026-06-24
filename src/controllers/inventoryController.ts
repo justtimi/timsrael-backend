@@ -3,15 +3,8 @@ import Product from "../models/Product.js";
 import InventoryLog from "../models/InventoryLog.js";
 import { logInventoryChange } from "../utils/inventoryLogger.js";
 import { Types } from "mongoose";
-import { z } from "zod";
+import { manualAdjustmentSchema } from "../validators/inventoryValidators.js";
 
-const manualAdjustmentSchema = z.object({
-  variantId: z.string().min(1),
-  quantityChange: z.number().int().refine((val) => val !== 0, {
-    message: "Quantity change cannot be zero",
-  }),
-  note: z.string().min(1).max(500).optional(),
-});
 
 export const adjustStock = async (req: Request, res: Response) => {
   try {
