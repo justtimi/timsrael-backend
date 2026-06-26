@@ -17,6 +17,7 @@ import wishlistRoutes from "./routes/wishlistRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import addressRoutes from "./routes/addressRoutes.js";
 import inventoryRoutes from "./routes/inventoryRoutes.js";
+import collectionRoutes from "./routes/collectionRoutes.js";
 
 const app = express();
 
@@ -46,6 +47,7 @@ app.use("/api/cart", cartRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/addresses", addressRoutes);
+app.use("/api/collections", collectionRoutes);
 
 // Test route
 app.get("/", (req, res) => {
