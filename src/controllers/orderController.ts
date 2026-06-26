@@ -146,7 +146,7 @@ export const createOrder = async (req: Request, res: Response) => {
       });
     }
 
-    const [order] = await Order.create(
+    const createdOrders = await Order.create(
       [
         {
           user: userId,
@@ -157,6 +157,14 @@ export const createOrder = async (req: Request, res: Response) => {
       ],
       { session },
     );
+
+    const order = createdOrders[0];
+
+    if (!order) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(500).json({ message: "Failed to create order" });
+    }
 
     cart.items = [];
     await cart.save({ session });

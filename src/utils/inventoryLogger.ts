@@ -32,6 +32,6 @@ export const logInventoryChange = async ({
         ...(note !== undefined && { note }),
       },
     ],
-    { session },
+    { session: session ?? null },
   );
 };

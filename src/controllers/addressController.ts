@@ -52,7 +52,14 @@ export const addAddress = async (req: Request, res: Response) => {
 
     const address = await Address.create({
       user: userId,
-      ...result.data,
+      fullName: result.data.fullName,
+      phone: result.data.phone,
+      address: result.data.address,
+      city: result.data.city,
+      state: result.data.state,
+      ...(result.data.country !== undefined && {
+        country: result.data.country,
+      }),
       isDefault: isFirst,
     });
 
