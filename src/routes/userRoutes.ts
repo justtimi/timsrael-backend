@@ -1,13 +1,15 @@
 import express from "express";
+import {
+  getMe,
+  updateMe,
+  changePassword,
+} from "../controllers/userController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.get("/profile", protect, (req: any, res) => {
-  res.json({
-    message: "Welcome to protected route 🔐",
-    user: req.user,
-  });
-});
+router.get("/me", protect, getMe);
+router.put("/me", protect, updateMe);
+router.put("/me/password", protect, changePassword);
 
 export default router;
