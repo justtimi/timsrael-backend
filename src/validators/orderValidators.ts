@@ -41,9 +41,13 @@ export const measurementsInputSchema = z.record(
 
 export const createOrderSchema = z
   .object({
-    addressId: z.string().regex(/^[a-f\d]{24}$/i, "Invalid ID format").optional(),
+    addressId: z
+      .string()
+      .regex(/^[a-f\d]{24}$/i, "Invalid ID format")
+      .optional(),
     shippingAddress: shippingAddressSchema.optional(),
     measurements: measurementsInputSchema.optional(),
+    couponCode: z.string().min(1).toUpperCase().optional(),
   })
   .refine((data) => data.addressId || data.shippingAddress, {
     message: "Either addressId or shippingAddress must be provided",

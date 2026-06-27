@@ -49,6 +49,8 @@ interface IOrder {
   items: IOrderItem[];
   totalAmount: number;
   shippingFee: number;
+  discountAmount: number;
+  couponCode?: string;
   status: "pending" | "paid" | "shipped" | "delivered" | "cancelled";
   shippingAddress: IShippingAddress;
   trackingHistory: ITrackingEvent[];

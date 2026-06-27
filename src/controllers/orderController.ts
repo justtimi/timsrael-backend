@@ -18,6 +18,7 @@ import {
   sendLowStockAlertEmail,
 } from "../utils/email.js";
 import ShippingZone from "../models/ShippingZone.js";
+import Coupon from "../models/Coupon.js";
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   pending: ["paid", "cancelled"],
@@ -48,6 +49,7 @@ export const createOrder = async (req: Request, res: Response) => {
       shippingAddress: shippingAddressInput,
       addressId,
       measurements,
+      couponCode,
     } = result.data;
 
     let shippingAddress: ShippingAddressInput;
@@ -115,6 +117,63 @@ export const createOrder = async (req: Request, res: Response) => {
       session,
     );
     const productMap = new Map(products.map((p) => [p._id.toString(), p]));
+
+    // Apply coupon if provided
+    let discountAmount = 0;
+    let appliedCoupon = null;
+
+    if (couponCode) {
+      const coupon = await Coupon.findOne({
+        code: couponCode,
+        isActive: true,
+      }).session(session);
+
+      if (!coupon) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({ message: "Invalid coupon code" });
+      }
+
+      if (coupon.expiresAt < new Date()) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({ message: "Coupon has expired" });
+      }
+
+      if (coupon.usageCount >= coupon.usageLimit) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({ message: "Coupon usage limit reached" });
+      }
+
+      const alreadyUsed = coupon.usedBy.some((id) => id.toString() === userId);
+
+      if (alreadyUsed) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({
+          message: "You have already used this coupon",
+        });
+      }
+
+      if (cartTotal < coupon.minOrderValue) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({
+          message: `Minimum order value of ₦${coupon.minOrderValue.toLocaleString()} required for this coupon`,
+        });
+      }
+
+      if (coupon.type === "percentage") {
+        discountAmount = Math.round((cartTotal * coupon.value) / 100);
+      } else if (coupon.type === "fixed") {
+        discountAmount = Math.min(coupon.value, cartTotal);
+      } else if (coupon.type === "free_shipping") {
+        discountAmount = shippingFee;
+      }
+
+      appliedCoupon = coupon;
+    }
 
     const orderItems = [];
 
@@ -211,7 +270,9 @@ export const createOrder = async (req: Request, res: Response) => {
           user: userId,
           items: orderItems,
           shippingFee,
-          totalAmount: cartTotal + shippingFee,
+          totalAmount: cartTotal + shippingFee - discountAmount,
+          discountAmount,
+          ...(couponCode !== undefined && { couponCode }),
           shippingAddress,
         },
       ],
@@ -227,6 +288,11 @@ export const createOrder = async (req: Request, res: Response) => {
     }
 
     cart.items = [];
+    if (appliedCoupon) {
+      appliedCoupon.usageCount += 1;
+      appliedCoupon.usedBy.push(new Types.ObjectId(userId));
+      await appliedCoupon.save({ session });
+    }
     await cart.save({ session });
 
     await session.commitTransaction();

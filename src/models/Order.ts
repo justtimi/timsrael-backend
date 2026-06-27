@@ -102,6 +102,14 @@ const orderSchema = new Schema<IOrderDocument>(
       min: 0,
       default: 0,
     },
+    discountAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    couponCode: {
+      type: String,
+    },
 
     status: {
       type: String,

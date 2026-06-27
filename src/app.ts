@@ -19,6 +19,7 @@ import addressRoutes from "./routes/addressRoutes.js";
 import inventoryRoutes from "./routes/inventoryRoutes.js";
 import collectionRoutes from "./routes/collectionRoutes.js";
 import shippingZoneRoutes from "./routes/shippingZoneRoutes.js";
+import couponRoutes from "./routes/couponRoutes.js";
 
 const app = express();
 
@@ -50,6 +51,7 @@ app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/addresses", addressRoutes);
 app.use("/api/collections", collectionRoutes);
 app.use("/api/shipping", shippingZoneRoutes);
+app.use("/api/coupons", couponRoutes);
 
 // Test route
 app.get("/", (req, res) => {
