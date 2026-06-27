@@ -48,6 +48,7 @@ interface IOrder {
   user: Types.ObjectId;
   items: IOrderItem[];
   totalAmount: number;
+  shippingFee: number;
   status: "pending" | "paid" | "shipped" | "delivered" | "cancelled";
   shippingAddress: IShippingAddress;
   trackingHistory: ITrackingEvent[];

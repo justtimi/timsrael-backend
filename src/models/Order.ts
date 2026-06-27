@@ -96,6 +96,12 @@ const orderSchema = new Schema<IOrderDocument>(
       type: Number,
       required: true,
     },
+    shippingFee: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
 
     status: {
       type: String,

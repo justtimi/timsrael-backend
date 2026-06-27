@@ -17,6 +17,7 @@ import {
   sendOrderConfirmationEmail,
   sendLowStockAlertEmail,
 } from "../utils/email.js";
+import ShippingZone from "../models/ShippingZone.js";
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   pending: ["paid", "cancelled"],
@@ -82,6 +83,32 @@ export const createOrder = async (req: Request, res: Response) => {
       session.endSession();
       return res.status(400).json({ message: "Cart is empty" });
     }
+
+    const shippingZone = await ShippingZone.findOne({
+      states: shippingAddress.state,
+      isActive: true,
+    }).session(session);
+
+    if (!shippingZone) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        message: "No shipping available for your location",
+      });
+    }
+
+    const cartTotal = cart.totalPrice ?? 0;
+
+    const matchingTier = shippingZone.tiers
+      .filter((tier) => cartTotal >= tier.minOrderValue)
+      .filter(
+        (tier) =>
+          tier.maxOrderValue === undefined || cartTotal <= tier.maxOrderValue,
+      )
+      .sort((a, b) => b.minOrderValue - a.minOrderValue)[0];
+
+    const shippingFee =
+      shippingZone.baseFee + (matchingTier?.additionalFee ?? 0);
 
     const productIds = cart.items.map((item) => item.product);
     const products = await Product.find({ _id: { $in: productIds } }).session(
@@ -183,7 +210,8 @@ export const createOrder = async (req: Request, res: Response) => {
         {
           user: userId,
           items: orderItems,
-          totalAmount: cart.totalPrice,
+          shippingFee,
+          totalAmount: cartTotal + shippingFee,
           shippingAddress,
         },
       ],
