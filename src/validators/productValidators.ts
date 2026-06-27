@@ -27,6 +27,7 @@ export const createProductSchema = z.object({
   sizeChart: z.array(sizeChartEntrySchema).optional(),
   requiresMeasurements: z.boolean().optional(),
   lowStockThreshold: z.number().int().min(0).optional(),
+  allowCustomMeasurements: z.boolean().optional(),
 });
 
 export const updateProductSchema = createProductSchema.partial();

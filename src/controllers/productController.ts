@@ -36,6 +36,7 @@ export const createProduct = async (req: Request, res: Response) => {
       variants,
       sizeChart,
       requiresMeasurements,
+      allowCustomMeasurements,
     } = result.data;
 
     const files = req.files as Express.Multer.File[];
@@ -85,6 +86,7 @@ export const createProduct = async (req: Request, res: Response) => {
       ...(sizeChart !== undefined && { sizeChart }),
       ...(requiresMeasurements !== undefined && { requiresMeasurements }),
       ...(lowStockThreshold !== undefined && { lowStockThreshold }),
+      ...(allowCustomMeasurements !== undefined && { allowCustomMeasurements }),
     });
 
     return res.status(201).json({
@@ -246,6 +248,7 @@ export const updateProduct = async (req: Request, res: Response) => {
       variants,
       sizeChart,
       requiresMeasurements,
+      allowCustomMeasurements,
     } = result.data;
 
     if (name !== undefined) product.name = name;
@@ -262,6 +265,8 @@ export const updateProduct = async (req: Request, res: Response) => {
       product.requiresMeasurements = requiresMeasurements;
     if (lowStockThreshold !== undefined)
       product.lowStockThreshold = lowStockThreshold;
+    if (allowCustomMeasurements !== undefined)
+      product.allowCustomMeasurements = allowCustomMeasurements;
 
     const files = req.files as Express.Multer.File[];
 

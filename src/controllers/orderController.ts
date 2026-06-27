@@ -6,7 +6,10 @@ import { Types } from "mongoose";
 import { createOrderSchema } from "../validators/orderValidators.js";
 import mongoose from "mongoose";
 import Address from "../models/Address.js";
-import type { ShippingAddressInput } from "../validators/orderValidators.js";
+import type {
+  ShippingAddressInput,
+  MeasurementsInput,
+} from "../validators/orderValidators.js";
 import { logInventoryChange } from "../utils/inventoryLogger.js";
 import type { TrackingStatus } from "../types/Order.js";
 import { trackingEventSchema } from "../validators/orderValidators.js";
@@ -40,7 +43,11 @@ export const createOrder = async (req: Request, res: Response) => {
       });
     }
 
-    const { shippingAddress: shippingAddressInput, addressId } = result.data;
+    const {
+      shippingAddress: shippingAddressInput,
+      addressId,
+      measurements,
+    } = result.data;
 
     let shippingAddress: ShippingAddressInput;
 
@@ -138,11 +145,36 @@ export const createOrder = async (req: Request, res: Response) => {
         session,
       });
 
+      let itemMeasurements: MeasurementsInput | undefined;
+
+      if (product.requiresMeasurements) {
+        const productMeasurements = measurements?.[item.variantId];
+
+        if (!productMeasurements) {
+          await session.abortTransaction();
+          session.endSession();
+          return res.status(400).json({
+            message: `Measurements are required for ${product.name}`,
+          });
+        }
+
+        itemMeasurements = productMeasurements;
+      } else if (product.allowCustomMeasurements) {
+        const productMeasurements = measurements?.[item.variantId];
+
+        if (productMeasurements) {
+          itemMeasurements = productMeasurements;
+        }
+      }
+
       orderItems.push({
         product: product._id,
         variantId: item.variantId,
         quantity: item.quantity,
         price: item.price,
+        ...(itemMeasurements !== undefined && {
+          measurements: itemMeasurements,
+        }),
       });
     }
 

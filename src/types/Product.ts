@@ -49,6 +49,7 @@ interface IProduct {
   sizeChart: ISizeChartEntry[];
   requiresMeasurements: boolean;
   lowStockThreshold: number;
+  allowCustomMeasurements: boolean;
 }
 
 export interface IProductDocument extends IProduct, Document {}

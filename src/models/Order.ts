@@ -1,6 +1,23 @@
 import { Schema, model } from "mongoose";
 import type { IOrderDocument } from "../types/Order.js";
 
+const measurementsSchema = new Schema(
+  {
+    bust: { type: Number, required: true },
+    waist: { type: Number, required: true },
+    hips: { type: Number, required: true },
+    backLength: { type: Number, required: true },
+    halfLength: { type: Number, required: true },
+    sleeveLength: { type: Number, required: true },
+    roundSleeve: { type: Number, required: true },
+    wrist: { type: Number, required: true },
+    waistToHip: { type: Number, required: true },
+    waistToKnee: { type: Number, required: true },
+    skirtOrGownLength: { type: Number, required: true },
+  },
+  { _id: false },
+);
+
 const orderItemSchema = new Schema({
   product: {
     type: Schema.Types.ObjectId,
@@ -21,6 +38,10 @@ const orderItemSchema = new Schema({
   price: {
     type: Number,
     required: true,
+  },
+  measurements: {
+    type: measurementsSchema,
+    required: false,
   },
 });
 

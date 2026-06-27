@@ -123,6 +123,10 @@ const productSchema = new Schema<IProductDocument>(
       type: Boolean,
       default: false,
     },
+    allowCustomMeasurements: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,
