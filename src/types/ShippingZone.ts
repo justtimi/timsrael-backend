@@ -2,7 +2,7 @@ import { Document } from "mongoose";
 
 export interface IShippingTier {
   minOrderValue: number;
-  maxOrderValue?: number;
+  maxOrderValue?: number | undefined;
   additionalFee: number;
 }
 

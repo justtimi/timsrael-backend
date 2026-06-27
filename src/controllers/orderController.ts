@@ -118,6 +118,36 @@ export const createOrder = async (req: Request, res: Response) => {
     );
     const productMap = new Map(products.map((p) => [p._id.toString(), p]));
 
+    // Check for price changes and refresh cart if needed
+    let cartPriceChanged = false;
+
+    for (const item of cart.items) {
+      const product = productMap.get(item.product.toString());
+
+      if (!product) continue;
+
+      const currentPrice = product.discountPrice ?? product.price;
+
+      if (item.price !== currentPrice) {
+        item.price = currentPrice;
+        cartPriceChanged = true;
+      }
+    }
+
+    if (cartPriceChanged) {
+      await session.abortTransaction();
+      session.endSession();
+
+      // Save price updates outside the transaction so they persist
+      await cart.save();
+
+      return res.status(409).json({
+        message:
+          "Some item prices have changed since you added them to your cart. Your cart has been updated with the latest prices. Please review and confirm your order.",
+        code: "CART_PRICE_UPDATED",
+      });
+    }
+
     // Apply coupon if provided
     let discountAmount = 0;
     let appliedCoupon = null;
