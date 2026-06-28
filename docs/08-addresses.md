@@ -194,5 +194,5 @@ Set an address as the default. The previously default address is automatically u
 
 - A user can have a maximum of **5 saved addresses**
 - The default address is always returned first in `GET /addresses`
-- At checkout, pass `addressId` instead of a full `shippingAddress` object to use a saved address — see [Orders](./05-orders.md)
+- At checkout, pass `addressId` instead of a full `shippingAddress` object to use a saved address — see [Orders](./06-orders.md)
 - Deleting the default address automatically promotes the next most recent address to default
