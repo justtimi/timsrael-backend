@@ -226,8 +226,8 @@ export const reviewReturnRequest = async (req: Request, res: Response) => {
       });
     }
 
-    // Restore stock when approved
     if (status === "approved") {
+      // Restore stock
       await Promise.all(
         returnRequest.items.map((item) =>
           Product.updateOne(
@@ -239,6 +239,55 @@ export const reviewReturnRequest = async (req: Request, res: Response) => {
           ),
         ),
       );
+      const order = await Order.findById(returnRequest.order);
+
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      if (!order.paystackReference) {
+        return res.status(400).json({
+          message:
+            "Order has no payment reference — refund must be processed manually",
+        });
+      }
+
+      const paystackResponse = await fetch("https://api.paystack.co/refund", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          transaction: order.paystackReference,
+          amount: Math.round(returnRequest.refundAmount * 100), // Paystack uses kobo
+        }),
+      });
+
+      const paystackData = (await paystackResponse.json()) as {
+        status: boolean;
+        message: string;
+      };
+
+      if (!paystackData.status) {
+        console.error(
+          "[ReturnController] Paystack refund failed:",
+          paystackData,
+        );
+        return res.status(500).json({
+          message:
+            "Stock restored but refund failed. Please process manually on Paystack dashboard.",
+        });
+      }
+
+      returnRequest.status = "approved";
+      if (adminNote !== undefined) returnRequest.adminNote = adminNote;
+      await returnRequest.save();
+
+      return res.status(200).json({
+        message: "Return approved and refund initiated successfully",
+        returnRequest,
+      });
     }
 
     returnRequest.status = status;

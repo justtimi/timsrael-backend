@@ -110,6 +110,9 @@ const orderSchema = new Schema<IOrderDocument>(
     couponCode: {
       type: String,
     },
+    paystackReference: {
+      type: String,
+    },
 
     status: {
       type: String,

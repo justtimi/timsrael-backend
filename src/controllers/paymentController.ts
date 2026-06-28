@@ -100,6 +100,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
 
       if (order.status === "pending") {
         order.status = "paid";
+        order.paystackReference = event.data.reference;
         await order.save();
       }
     }

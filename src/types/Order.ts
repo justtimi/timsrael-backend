@@ -47,10 +47,11 @@ export interface IShippingAddress {
 interface IOrder {
   user: Types.ObjectId;
   items: IOrderItem[];
-  totalAmount: number;
   shippingFee: number;
+  totalAmount: number;
   discountAmount: number;
   couponCode?: string;
+  paystackReference?: string;
   status: "pending" | "paid" | "shipped" | "delivered" | "cancelled";
   shippingAddress: IShippingAddress;
   trackingHistory: ITrackingEvent[];
