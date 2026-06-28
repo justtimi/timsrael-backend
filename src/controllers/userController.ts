@@ -5,6 +5,7 @@ import {
   updateProfileSchema,
   changePasswordSchema,
 } from "../validators/userValidators.js";
+import { flattenErrors } from "../utils/zodErrors.js";
 
 const BCRYPT_SALT_ROUNDS = 12;
 
@@ -39,7 +40,7 @@ export const updateMe = async (req: Request, res: Response) => {
     if (!result.success) {
       return res.status(400).json({
         message: "Invalid request data",
-        errors: result.error.flatten().fieldErrors,
+        errors: flattenErrors(result.error),
       });
     }
 
@@ -93,7 +94,7 @@ export const changePassword = async (req: Request, res: Response) => {
     if (!result.success) {
       return res.status(400).json({
         message: "Invalid request data",
-        errors: result.error.flatten().fieldErrors,
+        errors: flattenErrors(result.error),
       });
     }
 

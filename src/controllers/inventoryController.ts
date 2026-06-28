@@ -4,7 +4,7 @@ import InventoryLog from "../models/InventoryLog.js";
 import { logInventoryChange } from "../utils/inventoryLogger.js";
 import { Types } from "mongoose";
 import { manualAdjustmentSchema } from "../validators/inventoryValidators.js";
-
+import { flattenErrors } from "../utils/zodErrors.js";
 
 export const adjustStock = async (req: Request, res: Response) => {
   try {
@@ -20,7 +20,7 @@ export const adjustStock = async (req: Request, res: Response) => {
     if (!result.success) {
       return res.status(400).json({
         message: "Invalid request data",
-        errors: result.error.flatten().fieldErrors,
+        errors: flattenErrors(result.error),
       });
     }
 
@@ -92,7 +92,10 @@ export const getInventoryLogs = async (req: Request, res: Response) => {
     const { page = 1, limit = 20 } = req.query;
 
     const pageNum = Math.max(1, parseInt(page as string) || 1);
-    const limitNum = Math.min(100, Math.max(1, parseInt(limit as string) || 20));
+    const limitNum = Math.min(
+      100,
+      Math.max(1, parseInt(limit as string) || 20),
+    );
     const skip = (pageNum - 1) * limitNum;
 
     const [logs, total] = await Promise.all([

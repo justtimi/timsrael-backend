@@ -3,13 +3,18 @@ import Review from "../models/Review.js";
 import Order from "../models/Order.js";
 import { Types } from "mongoose";
 import { createReviewSchema } from "../validators/reviewValidators.js";
+import { flattenErrors } from "../utils/zodErrors.js";
 
 export const createReview = async (req: Request, res: Response) => {
   try {
     const userId = req.user.id;
     const { productId } = req.params;
 
-    if (!productId || typeof productId !== "string" || !Types.ObjectId.isValid(productId)) {
+    if (
+      !productId ||
+      typeof productId !== "string" ||
+      !Types.ObjectId.isValid(productId)
+    ) {
       return res.status(400).json({ message: "Invalid product ID" });
     }
 
@@ -18,7 +23,7 @@ export const createReview = async (req: Request, res: Response) => {
     if (!result.success) {
       return res.status(400).json({
         message: "Invalid request data",
-        errors: result.error.flatten().fieldErrors,
+        errors: flattenErrors(result.error),
       });
     }
 
@@ -43,7 +48,9 @@ export const createReview = async (req: Request, res: Response) => {
     });
 
     if (existingReview) {
-      return res.status(400).json({ message: "You have already reviewed this product" });
+      return res
+        .status(400)
+        .json({ message: "You have already reviewed this product" });
     }
 
     const review = await Review.create({
@@ -69,7 +76,11 @@ export const getProductReviews = async (req: Request, res: Response) => {
   try {
     const { productId } = req.params;
 
-    if (!productId || typeof productId !== "string" || !Types.ObjectId.isValid(productId)) {
+    if (
+      !productId ||
+      typeof productId !== "string" ||
+      !Types.ObjectId.isValid(productId)
+    ) {
       return res.status(400).json({ message: "Invalid product ID" });
     }
 
@@ -116,7 +127,11 @@ export const deleteReview = async (req: Request, res: Response) => {
   try {
     const { reviewId } = req.params;
 
-    if (!reviewId || typeof reviewId !== "string" || !Types.ObjectId.isValid(reviewId)) {
+    if (
+      !reviewId ||
+      typeof reviewId !== "string" ||
+      !Types.ObjectId.isValid(reviewId)
+    ) {
       return res.status(400).json({ message: "Invalid review ID" });
     }
 

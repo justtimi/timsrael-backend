@@ -5,6 +5,7 @@ import {
   createShippingZoneSchema,
   updateShippingZoneSchema,
 } from "../validators/shippingZoneValidators.js";
+import { flattenErrors } from "../utils/zodErrors.js";
 
 export const createShippingZone = async (req: Request, res: Response) => {
   try {
@@ -13,7 +14,7 @@ export const createShippingZone = async (req: Request, res: Response) => {
     if (!result.success) {
       return res.status(400).json({
         message: "Invalid request data",
-        errors: result.error.flatten().fieldErrors,
+        errors: flattenErrors(result.error),
       });
     }
 
@@ -105,7 +106,7 @@ export const updateShippingZone = async (req: Request, res: Response) => {
     if (!result.success) {
       return res.status(400).json({
         message: "Invalid request data",
-        errors: result.error.flatten().fieldErrors,
+        errors: flattenErrors(result.error),
       });
     }
 
@@ -159,7 +160,9 @@ export const deleteShippingZone = async (req: Request, res: Response) => {
 
     await zone.deleteOne();
 
-    return res.status(200).json({ message: "Shipping zone deleted successfully" });
+    return res
+      .status(200)
+      .json({ message: "Shipping zone deleted successfully" });
   } catch (error) {
     console.error("[ShippingZoneController] deleteShippingZone:", error);
     return res.status(500).json({ message: "An unexpected error occurred" });
@@ -174,7 +177,11 @@ export const calculateShippingFee = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "State is required" });
     }
 
-    if (orderTotal === undefined || typeof orderTotal !== "number" || orderTotal < 0) {
+    if (
+      orderTotal === undefined ||
+      typeof orderTotal !== "number" ||
+      orderTotal < 0
+    ) {
       return res.status(400).json({ message: "Valid order total is required" });
     }
 
@@ -191,7 +198,10 @@ export const calculateShippingFee = async (req: Request, res: Response) => {
 
     const matchingTier = zone.tiers
       .filter((tier) => orderTotal >= tier.minOrderValue)
-      .filter((tier) => tier.maxOrderValue === undefined || orderTotal <= tier.maxOrderValue)
+      .filter(
+        (tier) =>
+          tier.maxOrderValue === undefined || orderTotal <= tier.maxOrderValue,
+      )
       .sort((a, b) => b.minOrderValue - a.minOrderValue)[0];
 
     const additionalFee = matchingTier?.additionalFee ?? 0;

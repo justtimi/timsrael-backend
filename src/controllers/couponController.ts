@@ -5,6 +5,7 @@ import {
   createCouponSchema,
   updateCouponSchema,
 } from "../validators/couponValidators.js";
+import { flattenErrors } from "../utils/zodErrors.js";
 
 export const createCoupon = async (req: Request, res: Response) => {
   try {
@@ -13,7 +14,7 @@ export const createCoupon = async (req: Request, res: Response) => {
     if (!result.success) {
       return res.status(400).json({
         message: "Invalid request data",
-        errors: result.error.flatten().fieldErrors,
+        errors: flattenErrors(result.error),
       });
     }
 
@@ -110,7 +111,7 @@ export const updateCoupon = async (req: Request, res: Response) => {
     if (!result.success) {
       return res.status(400).json({
         message: "Invalid request data",
-        errors: result.error.flatten().fieldErrors,
+        errors: flattenErrors(result.error),
       });
     }
 

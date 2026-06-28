@@ -10,6 +10,7 @@ import {
   addProductToCollectionSchema,
 } from "../validators/collectionValidators.js";
 import { Types } from "mongoose";
+import { flattenErrors } from "../utils/zodErrors.js";
 
 export const createCollection = async (req: Request, res: Response) => {
   try {
@@ -18,7 +19,7 @@ export const createCollection = async (req: Request, res: Response) => {
     if (!result.success) {
       return res.status(400).json({
         message: "Invalid request data",
-        errors: result.error.flatten().fieldErrors,
+        errors: flattenErrors(result.error),
       });
     }
 
@@ -133,7 +134,7 @@ export const updateCollection = async (req: Request, res: Response) => {
     if (!result.success) {
       return res.status(400).json({
         message: "Invalid request data",
-        errors: result.error.flatten().fieldErrors,
+        errors: flattenErrors(result.error),
       });
     }
 
@@ -242,7 +243,7 @@ export const addProductToCollection = async (req: Request, res: Response) => {
     if (!result.success) {
       return res.status(400).json({
         message: "Invalid request data",
-        errors: result.error.flatten().fieldErrors,
+        errors: flattenErrors(result.error),
       });
     }
 
@@ -332,10 +333,7 @@ export const removeProductFromCollection = async (
       collection,
     });
   } catch (error) {
-    console.error(
-      "[CollectionController] removeProductFromCollection:",
-      error,
-    );
+    console.error("[CollectionController] removeProductFromCollection:", error);
     return res.status(500).json({ message: "An unexpected error occurred" });
   }
 };

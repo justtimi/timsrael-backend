@@ -19,6 +19,7 @@ import {
 } from "../utils/email.js";
 import ShippingZone from "../models/ShippingZone.js";
 import Coupon from "../models/Coupon.js";
+import { flattenErrors } from "../utils/zodErrors.js";
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   pending: ["paid", "cancelled"],
@@ -41,7 +42,7 @@ export const createOrder = async (req: Request, res: Response) => {
       session.endSession();
       return res.status(400).json({
         message: "Invalid request data",
-        errors: result.error.flatten().fieldErrors,
+        errors: flattenErrors(result.error),
       });
     }
 
@@ -638,7 +639,7 @@ export const addTrackingEvent = async (req: Request, res: Response) => {
     if (!result.success) {
       return res.status(400).json({
         message: "Invalid request data",
-        errors: result.error.flatten().fieldErrors,
+        errors: flattenErrors(result.error),
       });
     }
 

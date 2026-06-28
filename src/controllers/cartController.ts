@@ -8,6 +8,7 @@ import {
   removeCartItemSchema,
   updateCartItemSchema,
 } from "../validators/cartValidators.js";
+import { flattenErrors } from "../utils/zodErrors.js";
 
 const findCartItemIndex = (
   items: ICartItem[],
@@ -28,7 +29,7 @@ export const addToCart = async (req: Request, res: Response) => {
     if (!result.success) {
       return res.status(400).json({
         message: "Invalid request data",
-        errors: result.error.flatten().fieldErrors,
+        errors: flattenErrors(result.error),
       });
     }
 
@@ -138,7 +139,7 @@ export const updateCartItem = async (req: Request, res: Response) => {
     if (!result.success) {
       return res.status(400).json({
         message: "Invalid request data",
-        errors: result.error.flatten().fieldErrors,
+        errors: flattenErrors(result.error),
       });
     }
 
@@ -203,7 +204,7 @@ export const removeCartItem = async (req: Request, res: Response) => {
     if (!result.success) {
       return res.status(400).json({
         message: "Invalid request data",
-        errors: result.error.flatten().fieldErrors,
+        errors: flattenErrors(result.error),
       });
     }
 

@@ -7,6 +7,7 @@ import jwt from "jsonwebtoken";
 import { mergeGuestCartWithUserCart } from "../utils/mergeCart.js";
 import { registerSchema, loginSchema } from "../validators/authValidators.js";
 import { sendPasswordResetEmail } from "../utils/email.js";
+import { flattenErrors } from "../utils/zodErrors.js";
 
 const BCRYPT_SALT_ROUNDS = 12;
 
@@ -17,7 +18,7 @@ export const registerUser = async (req: Request, res: Response) => {
     if (!result.success) {
       return res.status(400).json({
         message: "Invalid request data",
-        errors: result.error.flatten().fieldErrors,
+        errors: flattenErrors(result.error),
       });
     }
 
@@ -53,7 +54,7 @@ export const loginUser = async (req: Request, res: Response) => {
     if (!result.success) {
       return res.status(400).json({
         message: "Invalid request data",
-        errors: result.error.flatten().fieldErrors,
+        errors: flattenErrors(result.error),
       });
     }
 
